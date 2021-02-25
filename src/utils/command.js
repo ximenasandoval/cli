@@ -78,7 +78,7 @@ const pollForToken = async ({ api, ticket, exitWithError, chalk }) => {
 class BaseCommand extends Command {
   // Initialize context
   async init() {
-    const cwd = argv.cwd || process.cwd()
+    const cwd = this.getCwd()
     // Grab netlify API token
     const authViaFlag = getAuthArg(argv)
 
@@ -87,16 +87,7 @@ class BaseCommand extends Command {
     // Get site id & build state
     const state = new StateConfig(cwd)
 
-    const apiUrlOpts = {}
-
-    if (NETLIFY_API_URL) {
-      const apiUrl = new URL(NETLIFY_API_URL)
-      apiUrlOpts.scheme = apiUrl.protocol.slice(0, -1)
-      apiUrlOpts.host = apiUrl.host
-      apiUrlOpts.pathPrefix = NETLIFY_API_URL === `${apiUrl.protocol}//${apiUrl.host}` ? '/api/v1' : apiUrl.pathname
-    }
-
-    const cachedConfig = await this.getConfig({ cwd, state, token, ...apiUrlOpts })
+    const { apiUrlOpts, cachedConfig } = await this.initConfig({ cwd, state, token })
     const { configPath, config, buildDir, siteInfo } = cachedConfig
 
     const { flags } = this.parse(BaseCommand)
@@ -113,16 +104,7 @@ class BaseCommand extends Command {
       // api methods
       api: new API(token || '', apiOpts),
       // current site context
-      site: {
-        root: buildDir,
-        configPath,
-        get id() {
-          return state.get('siteId')
-        },
-        set id(id) {
-          state.set('siteId', id)
-        },
-      },
+      site: this.getSite({ buildDir, configPath, state }),
       // Site information retrieved using the API
       siteInfo,
       // Configuration from netlify.[toml/yml]
@@ -134,6 +116,42 @@ class BaseCommand extends Command {
       // state of current site dir
       state,
     }
+  }
+
+  getCwd() {
+    return argv.cwd || process.cwd()
+  }
+
+  getSite({ buildDir, configPath, state }) {
+    return {
+      root: buildDir,
+      configPath,
+      get id() {
+        return state.get('siteId')
+      },
+      set id(id) {
+        state.set('siteId', id)
+      },
+    }
+  }
+
+  getApiUrlOpts() {
+    if (NETLIFY_API_URL) {
+      const apiUrl = new URL(NETLIFY_API_URL)
+      return {
+        scheme: apiUrl.protocol.slice(0, -1),
+        host: apiUrl.host,
+        pathPrefix: NETLIFY_API_URL === `${apiUrl.protocol}//${apiUrl.host}` ? '/api/v1' : apiUrl.pathname,
+      }
+    }
+
+    return {}
+  }
+
+  async initConfig({ cwd = this.getCwd(), state, token }) {
+    const apiUrlOpts = this.getApiUrlOpts()
+    const cachedConfig = await this.getConfig({ cwd, state, token, ...apiUrlOpts })
+    return { apiUrlOpts, cachedConfig }
   }
 
   // Find and resolve the Netlify configuration

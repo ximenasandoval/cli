@@ -4,9 +4,9 @@ const process = require('process')
 const { flags: flagsLib } = require('@oclif/command')
 const chalk = require('chalk')
 const cliSpinnerNames = Object.keys(require('cli-spinners'))
-const dotProp = require('dot-prop')
+const { get } = require('dot-prop')
 const inquirer = require('inquirer')
-const get = require('lodash/get')
+const isCi = require('is-ci')
 const isObject = require('lodash/isObject')
 const logSymbols = require('log-symbols')
 const ora = require('ora')
@@ -14,7 +14,7 @@ const prettyjson = require('prettyjson')
 const randomItem = require('random-item')
 
 const { cancelDeploy } = require('../lib/api')
-const { getBuildOptions, runBuild } = require('../lib/build')
+const { getBuildOptions, runBuild, runCleanBuild } = require('../lib/build')
 const { statAsync } = require('../lib/fs')
 const { getLogMessage } = require('../lib/log')
 const Command = require('../utils/command')
@@ -27,9 +27,9 @@ const SitesCreateCommand = require('./sites/create')
 
 const DEFAULT_DEPLOY_TIMEOUT = 1.2e6
 
-const triggerDeploy = async ({ api, siteId, siteData, log, error }) => {
+const triggerDeploy = async ({ api, siteData, log, error }) => {
   try {
-    const siteBuild = await api.createSiteBuild({ siteId })
+    const siteBuild = await api.createSiteBuild({ siteId: siteData.id })
     log(
       `${NETLIFYDEV} A new deployment was triggered successfully. Visit https://app.netlify.com/sites/${siteData.name}/deploys/${siteBuild.deploy_id} to see the logs.`,
     )
@@ -42,19 +42,16 @@ const triggerDeploy = async ({ api, siteId, siteData, log, error }) => {
   }
 }
 
-const getDeployFolder = async ({ flags, config, site, siteData, log }) => {
+const getDeployFolder = async ({ flags, config, log }) => {
   let deployFolder
   if (flags.dir) {
     deployFolder = path.resolve(process.cwd(), flags.dir)
-  } else if (get(config, 'build.publish')) {
-    deployFolder = path.resolve(site.root, get(config, 'build.publish'))
-  } else if (get(siteData, 'build_settings.dir')) {
-    deployFolder = path.resolve(site.root, get(siteData, 'build_settings.dir'))
+  } else if (config.build.publish) {
+    deployFolder = config.build.publish
   }
 
   if (!deployFolder) {
     log('Please provide a publish directory (e.g. "public" or "dist" or "."):')
-    log(process.cwd())
     const { promptPath } = await inquirer.prompt([
       {
         type: 'input',
@@ -92,17 +89,9 @@ const validateDeployFolder = async ({ deployFolder, error }) => {
   return stat
 }
 
-const getFunctionsFolder = ({ flags, config, site, siteData }) => {
-  let functionsFolder
-  // Support "functions" and "Functions"
-  const funcConfig = get(config, 'build.functions') || get(config, 'build.Functions')
-  if (flags.functions) {
-    functionsFolder = path.resolve(process.cwd(), flags.functions)
-  } else if (funcConfig) {
-    functionsFolder = path.resolve(site.root, funcConfig)
-  } else if (get(siteData, 'build_settings.functions_dir')) {
-    functionsFolder = path.resolve(site.root, get(siteData, 'build_settings.functions_dir'))
-  }
+const getFunctionsFolder = ({ flags, config }) => {
+  const functionsFolder = flags.functions ? path.resolve(process.cwd(), flags.functions) : config.build.functions
+
   return functionsFolder
 }
 
@@ -139,11 +128,11 @@ const validateFolders = async ({ deployFolder, functionsFolder, error, log }) =>
   return { deployFolderStat, functionsFolderStat }
 }
 
-const getDeployFilesFilter = ({ site, deployFolder }) => {
+const getDeployFilesFilter = ({ siteRoot, deployFolder }) => {
   // site.root === deployFolder can happen when users run `netlify deploy --dir .`
   // in that specific case we don't want to publish the repo node_modules
   // when site.root !== deployFolder the behaviour matches our buildbot
-  const skipNodeModules = site.root === deployFolder
+  const skipNodeModules = siteRoot === deployFolder
 
   return (filename) => {
     if (filename == null) {
@@ -193,7 +182,7 @@ const hasErrorMessage = (actual, expected) => {
   return false
 }
 
-const getJsonErrorMessage = (error) => dotProp.get(error, 'json.message', '')
+const getJsonErrorMessage = (error) => get(error, 'json.message', '')
 
 const reportDeployError = ({ error, warn, failAndExit }) => {
   switch (true) {
@@ -228,10 +217,9 @@ const reportDeployError = ({ error, warn, failAndExit }) => {
 const runDeploy = async ({
   flags,
   deployToProduction,
-  site,
+  siteRoot,
   siteData,
   api,
-  siteId,
   deployFolder,
   configPath,
   functionsFolder,
@@ -252,19 +240,19 @@ const runDeploy = async ({
 
     const draft = !deployToProduction && !alias
     const title = flags.message
-    results = await api.createSiteDeploy({ siteId, title, body: { draft, branch: alias } })
+    results = await api.createSiteDeploy({ siteId: siteData.id, title, body: { draft, branch: alias } })
     deployId = results.id
 
     const silent = flags.json || flags.silent
     await deployEdgeHandlers({
-      site,
+      siteRoot,
       deployId,
       api,
       silent,
       error,
       warn,
     })
-    results = await api.deploy(siteId, deployFolder, {
+    results = await api.deploy(siteData.id, deployFolder, {
       configPath,
       fnDir: functionsFolder,
       statusCb: silent ? () => {} : deployProgressCb(),
@@ -272,7 +260,7 @@ const runDeploy = async ({
       syncFileLimit: SYNC_FILE_LIMIT,
       // pass an existing deployId to update
       deployId,
-      filter: getDeployFilesFilter({ site, deployFolder }),
+      filter: getDeployFilesFilter({ siteRoot, deployFolder }),
     })
   } catch (error_) {
     if (deployId) {
@@ -282,8 +270,8 @@ const runDeploy = async ({
   }
 
   const siteUrl = results.deploy.ssl_url || results.deploy.url
-  const deployUrl = get(results, 'deploy.deploy_ssl_url') || get(results, 'deploy.deploy_url')
-  const logsUrl = `${get(results, 'deploy.admin_url')}/deploys/${get(results, 'deploy.id')}`
+  const deployUrl = results.deploy.deploy_ssl_url || results.deploy.deploy_url
+  const logsUrl = `${results.deploy.admin_url}/deploys/${results.deploy.id}`
 
   return {
     siteId: results.deploy.site_id,
@@ -296,17 +284,14 @@ const runDeploy = async ({
 }
 
 const printResults = ({ flags, results, deployToProduction, log, logJson, exit }) => {
-  const msgData = {
-    Logs: `${results.logsUrl}`,
-    'Unique Deploy URL': results.deployUrl,
-  }
-
-  if (deployToProduction) {
-    msgData['Website URL'] = results.siteUrl
-  } else {
-    delete msgData['Unique Deploy URL']
-    msgData['Website Draft URL'] = results.deployUrl
-  }
+  const logsMessage = { Logs: `${results.logsUrl}` }
+  const msgData = deployToProduction
+    ? {
+        ...logsMessage,
+        'Unique Deploy URL': results.deployUrl,
+        'Website URL': results.siteUrl,
+      }
+    : { ...logsMessage, 'Website Draft URL': results.deployUrl }
 
   // Spacer
   log()
@@ -339,11 +324,56 @@ const printResults = ({ flags, results, deployToProduction, log, logJson, exit }
   }
 }
 
+const handleNoSiteId = async ({ flags, site, log }) => {
+  const siteId = flags.site || site.id
+  if (!siteId) {
+    log("This folder isn't linked to a site yet")
+    const NEW_SITE = '+  Create & configure a new site'
+    const EXISTING_SITE = 'Link this directory to an existing site'
+
+    const initializeOpts = [EXISTING_SITE, NEW_SITE]
+    const { initChoice } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'initChoice',
+        message: 'What would you like to do?',
+        choices: initializeOpts,
+      },
+    ])
+
+    // create site or search for one
+    if (initChoice === NEW_SITE) {
+      // run site:create command
+      return await SitesCreateCommand.run([])
+    }
+
+    // run link command
+    return await LinkCommand.run([], false)
+  }
+}
+
+const handleBuildFlag = async ({ context, siteRoot, flags }) => {
+  if (flags.build) {
+    const options = await getBuildOptions({
+      context,
+      flags,
+    })
+    const cleanBuild = !flags.functions && !flags.dir && !isCi
+    const { exitCode, newConfig, newSite } = cleanBuild
+      ? await runCleanBuild({ context, siteRoot, options })
+      : await runBuild(options)
+    if (exitCode !== 0) {
+      context.exit(exitCode)
+    }
+    return { newConfig, newSite }
+  }
+}
+
 class DeployCommand extends Command {
   async run() {
     const { flags } = this.parse(DeployCommand)
     const { log, logJson, warn, error, exit } = this
-    const { api, site, config } = this.netlify
+    const { api, site, state } = this.netlify
     const alias = flags.alias || flags.branch
 
     if (flags.branch) {
@@ -364,68 +394,31 @@ class DeployCommand extends Command {
       },
     })
 
-    let siteId = flags.site || site.id
-    let siteData = {}
-    if (siteId) {
-      try {
-        siteData = await api.getSite({ siteId })
-      } catch (error_) {
-        // TODO specifically handle known cases (e.g. no account access)
-        if (error_.status === 404) {
-          error('Site not found')
-        } else {
-          error(error_.message)
-        }
-      }
-    } else {
-      this.log("This folder isn't linked to a site yet")
-      const NEW_SITE = '+  Create & configure a new site'
-      const EXISTING_SITE = 'Link this directory to an existing site'
-
-      const initializeOpts = [EXISTING_SITE, NEW_SITE]
-
-      const { initChoice } = await inquirer.prompt([
-        {
-          type: 'list',
-          name: 'initChoice',
-          message: 'What would you like to do?',
-          choices: initializeOpts,
-        },
-      ])
-      // create site or search for one
-      if (initChoice === NEW_SITE) {
-        // run site:create command
-        siteData = await SitesCreateCommand.run([])
-        site.id = siteData.id
-        siteId = site.id
-      } else if (initChoice === EXISTING_SITE) {
-        // run link command
-        siteData = await LinkCommand.run([], false)
-        site.id = siteData.id
-        siteId = site.id
-      }
+    const newSiteData = await handleNoSiteId({ flags, site, log })
+    let { siteInfo: siteData, config } = this.netlify
+    if (newSiteData) {
+      siteData = newSiteData
+      site.id = newSiteData.id
+      // refresh config after creating the new site
+      const {
+        cachedConfig: { config: newConfig },
+      } = await this.initConfig({ state, token: api.accessToken })
+      config = newConfig
     }
 
     if (flags.trigger) {
-      return triggerDeploy({ api, siteId, siteData, log, error })
+      return triggerDeploy({ api, siteData, log, error })
     }
 
-    if (flags.build) {
-      const [token] = await this.getConfigToken()
-      const options = await getBuildOptions({
-        context: this,
-        token,
-        flags,
-      })
-      const exitCode = await runBuild(options)
-      if (exitCode !== 0) {
-        this.exit(exitCode)
-      }
-    }
-
-    const deployFolder = await getDeployFolder({ flags, config, site, siteData, log })
-    const functionsFolder = getFunctionsFolder({ flags, config, site, siteData })
-    const { configPath } = site
+    // the build command might result in a new config and site
+    const { newConfig = config, newSite = site } = await handleBuildFlag({
+      context: this,
+      siteRoot: site.root,
+      flags,
+    })
+    const deployFolder = await getDeployFolder({ flags, config: newConfig, log })
+    const functionsFolder = getFunctionsFolder({ flags, config: newConfig })
+    const { configPath, siteRoot } = newSite
 
     log(
       prettyjson.render({
@@ -445,10 +438,9 @@ class DeployCommand extends Command {
     const results = await runDeploy({
       flags,
       deployToProduction,
-      site,
+      siteRoot,
       siteData,
       api,
-      siteId,
       deployFolder,
       configPath,
       // pass undefined functionsFolder if doesn't exist

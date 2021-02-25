@@ -7,9 +7,9 @@ const { startSpinner, stopSpinner } = require('../lib/spinner')
 const MANIFEST_FILENAME = 'manifest.json'
 const EDGE_HANDLERS_FOLDER = '.netlify/edge-handlers'
 
-const validateEdgeHandlerFolder = async ({ site, error }) => {
+const validateEdgeHandlerFolder = async ({ siteRoot, error }) => {
   try {
-    const resolvedFolder = path.resolve(site.root, EDGE_HANDLERS_FOLDER)
+    const resolvedFolder = path.resolve(siteRoot, EDGE_HANDLERS_FOLDER)
     const stat = await statAsync(resolvedFolder)
     if (!stat.isDirectory()) {
       error(`Edge Handlers folder ${EDGE_HANDLERS_FOLDER} must be a path to a directory`)
@@ -50,8 +50,8 @@ const readBundleAndManifest = async ({ edgeHandlersResolvedFolder, error }) => {
   return { bundleBuffer, manifest: manifestJson }
 }
 
-const deployEdgeHandlers = async ({ site, deployId, api, silent, error, warn }) => {
-  const edgeHandlersResolvedFolder = await validateEdgeHandlerFolder({ site, error })
+const deployEdgeHandlers = async ({ siteRoot, deployId, api, silent, error, warn }) => {
+  const edgeHandlersResolvedFolder = await validateEdgeHandlerFolder({ siteRoot, error })
   if (edgeHandlersResolvedFolder) {
     let spinner
     try {

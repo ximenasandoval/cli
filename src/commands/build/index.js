@@ -9,10 +9,8 @@ class BuildCommand extends Command {
   // Run Netlify Build
   async run() {
     // Retrieve Netlify Build options
-    const [token] = await this.getConfigToken()
     const options = await getBuildOptions({
       context: this,
-      token,
       flags: this.parse(BuildCommand).flags,
     })
     this.checkOptions(options)
@@ -22,7 +20,7 @@ class BuildCommand extends Command {
       payload: { command: 'build', dry: Boolean(options.dry) },
     })
 
-    const exitCode = await runBuild(options)
+    const { exitCode } = await runBuild(options)
     this.exit(exitCode)
   }
 
