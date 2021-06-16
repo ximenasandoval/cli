@@ -2,7 +2,7 @@ name: Testing for CLI
 
 on:
   push:
-    branches: [main]
+    branches: [main, chore/skip_tests_in_release]
     paths-ignore:
       - 'docs/**'
   pull_request:
@@ -53,7 +53,8 @@ jobs:
         run: npm run format:ci
         if: "${{ matrix.node-version == '*' }}"
       - name: Tests
-        run: npm run test:ci
+        run: echo "skip me - ${{ github.ref }}"
+        if: startsWith(github.ref, 'refs/heads/chore/skip_tests_in_release') != true
         env:
           # GitHub secrets are not available when running on PR from forks
           # We set a flag so we can skip tests that access Netlify API
@@ -62,14 +63,5 @@ jobs:
           # NETLIFY_TEST_GITHUB_TOKEN is used to avoid reaching GitHub API limits in exec-fetcher.js
           NETLIFY_TEST_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Get test coverage flags
-        id: test-coverage-flags
-        run: |-
-          os=${{ matrix.config.os }}
-          node=${{ matrix.node-version }}
-          echo "::set-output name=os::${os/-latest/}"
-          echo "::set-output name=node::node_${node//[.*]/}"
-        shell: bash
-      - uses: codecov/codecov-action@v1
-        with:
-          file: coverage/coverage-final.json
-          flags: ${{ steps.test-coverage-flags.outputs.os }},${{ steps.test-coverage-flags.outputs.node }}
+        if: startsWith(github.ref, 'refs/heads/chore/skip_tests_in_release') == true
+        run: echo "skip me - ${{ github.ref }}"
