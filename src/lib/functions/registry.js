@@ -1,6 +1,7 @@
 const { env } = require('process')
 
 const chalk = require('chalk')
+const terminalLink = require('terminal-link')
 
 const { log, warn } = require('../../utils/command-helpers')
 const { NETLIFYDEVERR, NETLIFYDEVLOG } = require('../../utils/logo')
@@ -144,9 +145,9 @@ class FunctionsRegistry {
     this.buildFunctionAndWatchFiles(func)
 
     log(
-      `${NETLIFYDEVLOG} ${chalk.green('Loaded')} function ${chalk.yellow(name)} available under: ${chalk.blue(
-        func.url,
-      )}.`,
+      `${NETLIFYDEVLOG} ${chalk.green('Loaded')} function ${terminalLink(chalk.yellow(name), func.url, {
+        fallback: (text, url) => `${text} available under: (${chalk.blue(url)})`,
+      })}.`,
     )
   }
 
