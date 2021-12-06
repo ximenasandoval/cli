@@ -144,9 +144,7 @@ class FunctionsRegistry {
     this.functions.set(name, func)
     this.buildFunctionAndWatchFiles(func)
 
-    log(
-      `${NETLIFYDEVLOG} ${chalk.green('Loaded')} function ${terminalLink(chalk.yellow(name), func.url)}.`,
-    )
+    log(`${NETLIFYDEVLOG} ${chalk.green('Loaded')} function ${terminalLink(chalk.yellow(name), func.url)}.`)
   }
 
   async scan(directories) {
