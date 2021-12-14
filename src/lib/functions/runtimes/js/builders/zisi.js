@@ -25,6 +25,9 @@ const buildFunction = async ({ cache, config, directory, func, hasTypeModule, pr
     archiveFormat: 'none',
     basePath: projectRoot,
     config,
+    featureFlags: {
+      parseISC: true,
+    },
   }
   const functionDirectory = path.dirname(func.mainFile)
 
@@ -98,14 +101,6 @@ module.exports = async ({ config, directory, errorExit, func, projectRoot }) => 
 
   if (mustUseEsbuild && !functionsConfig['*'].nodeBundler) {
     functionsConfig['*'].nodeBundler = 'esbuild'
-  }
-
-  // TODO: Resolve functions config globs so that we can check for the bundler
-  // on a per-function basis.
-  const isUsingEsbuild = ['esbuild_zisi', 'esbuild'].includes(functionsConfig['*'].nodeBundler)
-
-  if (!isUsingEsbuild) {
-    return false
   }
 
   // Enable source map support.
