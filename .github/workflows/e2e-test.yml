@@ -1,0 +1,31 @@
+name: E2E Testing for CLI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        node-version: [12.x, '*']
+        exclude:
+          - os: macOS-latest
+            node-version: '12.x'
+          - os: windows-latest
+            node-version: '12.x'
+      fail-fast: false
+
+    services:
+      verdaccio:
+        image: verdaccio/verdaccio
+        ports:
+          - 4873:4873
+
+    steps:
+      - run: node --version

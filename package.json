@@ -42,7 +42,7 @@
     "url": "https://github.com/netlify/cli/issues"
   },
   "scripts": {
-    "prepublishOnly": "run-s prepublishOnly:*",
+    "sprepublishOnly": "run-s prepublishOnly:*",
     "prepublishOnly:test": "run-local \"npm test\"",
     "start": "node ./bin/run",
     "test": "run-s format test:dev",
@@ -66,8 +66,8 @@
     "test:affected": "node ./tools/affected-test.js",
     "docs": "node ./site/scripts/docs.js",
     "watch": "nyc --reporter=lcov ava --watch",
-    "prepack": "npm prune --prod",
-    "postpack": "npm i",
+    "sprepack": "npm prune --prod",
+    "spostpack": "npm i",
     "site:build": "run-s site:build:*",
     "site:build:install": "cd site && npm ci --no-audit",
     "site:build:assets": "cd site && npm run build",
@@ -216,10 +216,12 @@
     "temp-dir": "^2.0.0",
     "tomlify-j0.4": "^3.0.0",
     "tree-kill": "^1.2.2",
-    "typescript": "^4.4.4"
+    "typescript": "^4.4.4",
+    "verdaccio": "^5.3.1"
   },
   "ava": {
     "files": [
+      "e2e/**/*.test.js",
       "site/**/*.test.js",
       "src/**/*.test.js",
       "tools/**/*.test.js",
