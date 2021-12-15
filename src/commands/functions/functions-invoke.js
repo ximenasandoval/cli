@@ -1,12 +1,12 @@
 // @ts-check
-const fs = require('fs')
-const path = require('path')
-const process = require('process')
+import fs from 'fs'
+import path from 'path'
+import process from 'process'
 
-const inquirer = require('inquirer')
-const fetch = require('node-fetch')
+import inquirer from 'inquirer'
+import fetch from 'node-fetch'
 
-const { BACKGROUND, NETLIFYDEVWARN, chalk, error, exit, getFunctions } = require('../../utils')
+import { BACKGROUND, NETLIFYDEVWARN, chalk, error, exit, getFunctions } from '../../utils/index.js'
 
 // https://www.netlify.com/docs/functions/#event-triggered-functions
 const events = [
@@ -236,7 +236,7 @@ const functionsInvoke = async (nameArgument, options, command) => {
  * @param {import('../base-command').BaseCommand} program
  * @returns
  */
-const createFunctionsInvokeCommand = (program) =>
+export const createFunctionsInvokeCommand = (program) =>
   program
     .command('functions:invoke')
     .alias('function:trigger')
@@ -269,5 +269,3 @@ const createFunctionsInvokeCommand = (program) =>
       'netlify functions:invoke myfunction --payload "./pathTo.json"',
     ])
     .action(functionsInvoke)
-
-module.exports = { createFunctionsInvokeCommand }

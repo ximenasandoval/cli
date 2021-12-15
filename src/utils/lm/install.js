@@ -1,26 +1,27 @@
 // @ts-check
-const { appendFile, copyFile, readFile, writeFile } = require('fs').promises
-const os = require('os')
-const path = require('path')
-const process = require('process')
+import { promises } from 'fs'
+import os from 'os'
+import path from 'path'
+import process from 'process'
 
-const execa = require('execa')
-const hasbin = require('hasbin')
-const Listr = require('listr')
-const pathKey = require('path-key')
+import execa from 'execa'
+import hasbin from 'hasbin'
+import Listr from 'listr'
+import pathKey from 'path-key'
 
-const { fetchLatestVersion, shouldFetchLatestVersion } = require('../../lib/exec-fetcher')
-const { fileExistsAsync, rmdirRecursiveAsync } = require('../../lib/fs')
-const { normalizeBackslash } = require('../../lib/path')
-const { getLegacyPathInHome, getPathInHome } = require('../../lib/settings')
-const { chalk } = require('../command-helpers')
+import { fetchLatestVersion, shouldFetchLatestVersion } from '../../lib/exec-fetcher.js'
+import { fileExistsAsync, rmdirRecursiveAsync } from '../../lib/fs.js'
+import { normalizeBackslash } from '../../lib/path.js'
+import { getLegacyPathInHome, getPathInHome } from '../../lib/settings.js'
+import { chalk } from '../command-helpers.js'
+import { checkGitLFSVersionStep, checkGitVersionStep, checkLFSFiltersStep } from './steps.js'
+
+const { appendFile, copyFile, readFile, writeFile } = promises
 
 const PACKAGE_NAME = 'netlify-credential-helper'
 const EXEC_NAME = 'git-credential-netlify'
 
 const GIT_CONFIG = '.gitconfig'
-
-const { checkGitLFSVersionStep, checkGitVersionStep, checkLFSFiltersStep } = require('./steps')
 
 const SUPPORTED_PLATFORMS = {
   linux: 'Linux',
@@ -55,7 +56,7 @@ const setupGitConfigStep = {
   task: () => configureGitConfig(),
 }
 
-const installPlatform = async function ({ force }) {
+export const installPlatform = async function ({ force }) {
   const skipInstall = !force && (await installedWithPackageManager())
   const steps = [
     checkGitVersionStep,
@@ -110,7 +111,7 @@ const installHelper = async function () {
   })
 }
 
-const isBinInPath = () => {
+export const isBinInPath = () => {
   const envPath = process.env[pathKey()]
   const binPath = getBinPath()
   return envPath.replace(/"+/g, '').split(path.delimiter).includes(binPath)
@@ -247,7 +248,7 @@ const CONFIG_FILES = {
   fish: '.config/fish/config.fish',
 }
 
-const getShellInfo = function () {
+export const getShellInfo = function () {
   const shellEnv = process.env.SHELL
   if (!shellEnv) {
     throw new Error('Unable to detect SHELL type, make sure the variable is defined in your environment')
@@ -272,7 +273,7 @@ const cleanupShell = async function () {
   } catch {}
 }
 
-const uninstall = async function () {
+export const uninstall = async function () {
   await Promise.all([
     rmdirRecursiveAsync(getHelperPath()),
     removeConfig(GIT_CONFIG, getGitConfigContent(getGitConfigPath())),
@@ -290,5 +291,3 @@ const removeConfig = async function (name, toRemove) {
   const content = await readFile(configPath, 'utf8')
   return await writeFile(configPath, content.replace(toRemove, ''))
 }
-
-module.exports = { installPlatform, isBinInPath, getShellInfo, uninstall }

@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-/* eslint-disable promise/prefer-await-to-then,promise/prefer-await-to-callbacks,eslint-comments/disable-enable-pair */
-const process = require('process')
+import { readFileSync } from 'fs'
+import process from 'process'
+import { fileURLToPath } from 'url'
 
-const updateNotifier = require('update-notifier')
+import updateNotifier from 'update-notifier'
 
-const { createMainCommand } = require('../src/commands')
+import { createMainCommand } from '../src/commands.js'
 
 // 12 hours
 const UPDATE_CHECK_INTERVAL = 432e5
 
-if (require.main === module) {
-  // eslint-disable-next-line node/global-require
-  const pkg = require('../package.json')
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
+  const pkg = JSON.parse(readFileSync('../package.json'))
 
   try {
     updateNotifier({
@@ -28,9 +28,11 @@ if (require.main === module) {
 
   const program = createMainCommand()
 
-  program.parseAsync(process.argv).catch((error) => {
+  try {
+    await program.parseAsync(process.argv)
+  } catch (error) {
     caughtError = error
-  })
+  }
 
   // long running commands like dev server cannot be caught by a post action hook
   // they are running on the main command

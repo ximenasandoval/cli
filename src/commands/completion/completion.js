@@ -1,8 +1,8 @@
-const { join } = require('path')
+import { join } from 'path'
 
-const { install, uninstall } = require('tabtab')
+import { install, uninstall } from 'tabtab'
 
-const { createAutocompletion } = require('../../lib/completion')
+import { createAutocompletion } from '../../lib/completion/index.js'
 
 /**
  * The completion:generate command
@@ -27,7 +27,7 @@ const completionGenerate = async (options, command) => {
  * @param {import('../base-command').BaseCommand} program
  * @returns
  */
-const createCompletionCommand = (program) => {
+export const createCompletionCommand = (program) => {
   program
     .command('completion:install')
     .alias('completion:generate')
@@ -53,4 +53,4 @@ const createCompletionCommand = (program) => {
       command.help()
     })
 }
-module.exports = { createCompletionCommand }
+

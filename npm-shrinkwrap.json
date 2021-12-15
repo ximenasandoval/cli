@@ -20632,6 +20632,7 @@
       }
     },
     "tools/eslint-rules": {
+      "name": "eslint-plugin-local-rules",
       "version": "0.0.1",
       "dev": true,
       "engines": {

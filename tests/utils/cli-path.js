@@ -1,6 +1,6 @@
-const path = require('path')
-const process = require('process')
+import path from 'path'
+import process from 'process'
 
 const cliPath = path.resolve(__dirname, '..', '..', 'bin', process.platform === 'win32' ? 'run.cmd' : 'run')
 
-module.exports = cliPath
+export default cliPath

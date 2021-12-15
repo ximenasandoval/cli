@@ -1,11 +1,13 @@
-const path = require('path')
-const { promisify } = require('util')
+import path from 'path'
+import { promisify } from 'util'
 
-const zipIt = require('@netlify/zip-it-and-ship-it')
-const fromArray = require('from2-array')
-const pump = promisify(require('pump'))
+import zipIt from '@netlify/zip-it-and-ship-it'
+import fromArray from 'from2-array'
+import _pump from 'pump'
 
-const { hasherCtor, manifestCollectorCtor } = require('./hasher-segments')
+import { hasherCtor, manifestCollectorCtor } from './hasher-segments.js'
+
+const pump = promisify(_pump)
 
 // Maximum age of functions manifest (2 minutes).
 const MANIFEST_FILE_TTL = 12e4
@@ -64,7 +66,7 @@ const getFunctionZips = async ({
   return await zipIt.zipFunctions(directories, tmpDir, { basePath: rootDir, config: functionsConfig })
 }
 
-const hashFns = async (
+export const hashFns = async (
   directories,
   {
     assetType = 'function',
@@ -127,5 +129,3 @@ const hashFns = async (
 
   return { functions, functionsWithNativeModules, fnShaMap }
 }
-
-module.exports = { hashFns }

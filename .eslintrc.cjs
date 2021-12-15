@@ -3,6 +3,9 @@ const { overrides } = require('@netlify/eslint-config-node')
 module.exports = {
   extends: '@netlify/eslint-config-node',
   plugins: ['sort-destructure-keys', 'local-rules'],
+  parserOptions: {
+    sourceType: 'module',
+  },
   rules: {
     // Those rules from @netlify/eslint-config-node are currently disabled
     // TODO: remove, so those rules are enabled
@@ -21,6 +24,8 @@ module.exports = {
     'unicorn/consistent-destructuring': 0,
     // TODO: harmonize with filename snake_case in other Netlify Dev projects
     'unicorn/filename-case': [2, { case: 'kebabCase' }],
+    // ESModules need a file extension
+    'import/extensions': [2, { js: 'always', json: 'never' }],
   },
   overrides: [
     ...overrides,

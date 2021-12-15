@@ -1,11 +1,11 @@
-const path = require('path')
+import path from 'path'
 
-const test = require('ava')
-const sortOn = require('sort-on')
+import test from 'ava'
+import sortOn from 'sort-on'
 
-const { withSiteBuilder } = require('../../../tests/utils/site-builder')
+import { withSiteBuilder } from '../../../tests/utils/site-builder.js'
 
-const { getFunctions, getFunctionsAndWatchDirs } = require('./get-functions')
+import { getFunctions, getFunctionsAndWatchDirs } from './get-functions.js'
 
 test('should return empty object when an empty string is provided', async (t) => {
   const funcs = await getFunctions('')
